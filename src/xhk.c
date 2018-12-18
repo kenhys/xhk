@@ -59,6 +59,7 @@ static int verbose = 1;
 #define VERBOSE(level, ...) 	PRINT(level, ##__VA_ARGS__)
 
 static bool ApplicationRunning = true;
+static bool ApplicationSuspended = false;
 static bool MirrorMode = false;
 
 /* KeyStates == key_down / is_pressed */
@@ -599,6 +600,16 @@ static void handle_signal(int signum)
     ERROR("Received Signal %d\n", signum);
 
     switch (signum) {
+    case SIGCONT:
+        if (LocalScreen.display)
+            float_device(LocalScreen.display, LocalScreen.keyboard.deviceid);
+        ApplicationSuspended = false;
+        break;
+    case SIGSTOP:
+        if (LocalScreen.display)
+            reattach_device(LocalScreen.display, LocalScreen.keyboard.deviceid, LocalScreen.keyboard.attachment);
+        ApplicationSuspended = true;
+        break;
     case SIGTERM: /* 15 */
         ERROR("Really want me to die huh?\n");
         /* Fall Through */
@@ -616,6 +627,8 @@ void install_signal_handlers(void)
     signal(SIGTERM, handle_signal);
     signal(SIGQUIT, handle_signal);
     signal(SIGINT, handle_signal);
+    signal(SIGSTOP, handle_signal);
+    signal(SIGCONT, handle_signal);
 }
 
 int KeycodeTest(XWindowsScreen_t * screen, int keycode, int up_flag, int expected, int expected_state)
